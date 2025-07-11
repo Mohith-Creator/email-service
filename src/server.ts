@@ -13,6 +13,17 @@ const emailService = new EmailService([
   new MockProviderA(),
   new MockProviderB(),
 ]);
+// Get delivery status by messageId
+app.get("/status/:id", (req, res) => {
+  const messageId = req.params.id;
+  const status = emailService.getStatus(messageId);
+
+  if (!status) {
+    return res.status(404).json({ error: "Status not found" });
+  }
+
+  res.status(200).json(status);
+});
 
 app.post("/send-email", async (req, res) => {
   const { to, subject, body, messageId } = req.body;

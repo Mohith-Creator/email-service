@@ -1,9 +1,0 @@
-services:
-  - type: web
-    name: resilient-email-service
-    env: node
-    plan: free
-    region: oregon
-    buildCommand: npm install && npm run build
-    startCommand: node dist/server.js
-    autoDeploy: true
