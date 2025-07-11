@@ -14,46 +14,41 @@ interface EmailRequest {
 export class EmailService {
   private providers: EmailProvider[];
   private tracker = new StatusTracker();
-  private limiter = new RateLimiter(5, 1000); // Max 5 requests per second
+  private limiter = new RateLimiter(5, 1000); // 5 requests per second
   private idempotency = new IdempotencyStore();
 
   constructor(providers: EmailProvider[]) {
     this.providers = providers;
   }
 
-  // Public method to retrieve status by message ID
   public getStatus(messageId: string) {
     return this.tracker.getStatus(messageId);
   }
-
-  // Core method to send email
   async sendEmail(request: EmailRequest) {
     const id = request.messageId || `${request.to}-${Date.now()}`;
 
-    // Check for duplicate using idempotency store
     if (this.idempotency.exists(id)) {
       console.log(`[Idempotency] Duplicate request: ${id}`);
       return { status: "duplicate", messageId: id };
     }
 
-    // Rate limiter check
     if (!this.limiter.allow()) {
       console.log(`[RateLimiter] Rate limit exceeded`);
       throw new Error("Rate limit exceeded");
     }
 
-    // Try sending email through each provider
-    for (const provider of this.providers) {
+    for (let i = 0; i < this.providers.length; i++) {
+      const provider = this.providers[i];
       let attempts = 0;
+
       console.log(`Trying provider: ${provider.name}`);
 
       while (attempts < 3) {
         console.log(`Attempt ${attempts + 1} using ${provider.name}`);
         try {
-          await delay(2 ** attempts * 100); // Exponential backoff
+          await delay(2 ** attempts * 100); // exponential backoff
           await provider.send(request);
 
-          // Success: Track status and store idempotency
           this.idempotency.save(id);
           this.tracker.track(id, {
             provider: provider.name,
@@ -78,7 +73,6 @@ export class EmailService {
       );
     }
 
-    // If all providers fail
     this.tracker.track(id, { provider: null, status: "failed", attempts: 3 });
     console.log(`All providers failed for message ID: ${id}`);
     throw new Error("All providers failed");
